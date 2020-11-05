@@ -66,9 +66,11 @@
   return [self arrayFromDescriptors:characteristic.descriptors];
 }
 
-- (TiBlob *)value
+- (NSString *)value
 {
-  return [[TiBlob alloc] initWithData:characteristic.value mimetype:@"text/plain"];
+  //return [[TiBlob alloc] initWithData:characteristic.value mimetype:@"text/plain"];
+    return [self hex:characteristic.value];
+
 }
 
 - (NSString *)uuid
@@ -77,6 +79,23 @@
 }
 
 #pragma mark Utilities
+-(NSString*)hex:(NSData*)data{
+     NSMutableData *result = [NSMutableData dataWithLength:2*data.length];
+     unsigned const char* src = data.bytes;
+     unsigned char* dst = result.mutableBytes;
+     unsigned char t0, t1;
+
+     for (int i = 0; i < data.length; i ++ ) {
+          t0 = src[i] >> 4;
+          t1 = src[i] & 0x0F;
+
+          dst[i*2] = 48 + t0 + (t0 / 10) * 39;
+          dst[i*2+1] = 48 + t1 + (t1 / 10) * 39;
+     }
+
+     return [[NSString alloc] initWithData:result encoding:NSASCIIStringEncoding];
+}
+
 
 - (NSArray *)arrayFromDescriptors:(NSArray<CBDescriptor *> *)descriptors
 {

@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.titanium.TiBlob;
+import org.appcelerator.kroll.KrollDict;
 
 import ti.bluetooth.TiBluetoothModule;
 
@@ -29,6 +30,20 @@ public class TiBluetoothCharacteristicProxy extends KrollProxy {
       @Kroll.method
       public TiBlob getValue() {
     return TiBlob.blobFromData(characteristic.getValue());
+  }
+
+  @Kroll
+      .getProperty
+      @Kroll.method
+      public int getCharacteristicProperties() {
+    return characteristic.getProperties();
+  }
+
+  @Kroll
+      .getProperty
+      @Kroll.method
+      public int getPermissions() {
+    return characteristic.getPermissions();
   }
 
   public BluetoothGattCharacteristic getCharacteristic() {

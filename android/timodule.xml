@@ -12,7 +12,6 @@
 				<receiver android:exported="true" android:name=".ti.bluetooth.broadcastReceiver.TiBluetoohBroadcastReceiver" android:enabled="true">
 					<intent-filter>
 						<action android:name="android.bluetooth.adapter.action.STATE_CHANGED"/>
-						<action android:name="android.bluetooth.device.action.BOND_STATE_CHANGED"/>
 						<action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED"/>
 					</intent-filter>
 				</receiver>

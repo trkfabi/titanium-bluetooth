@@ -1,6 +1,9 @@
 package ti.bluetooth.central;
 
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
@@ -12,6 +15,7 @@ import android.os.ParcelUuid;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
+import org.appcelerator.kroll.common.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +38,8 @@ public class TiBluetoothCentralManagerProxy
       "didDisconnectPeripheral";
   private static final String DID_FAIL_TO_CONNECT_PERIPHERAL =
       "didFailToConnectPeripheral";
+  private static final String DID_FAIL_TO_CONNECT_PERIPHERAL_133 =
+      "didFailToConnectPeripheral133";      
   private static final String NOTIFY_ON_CONNECTION_KEY = "notifyOnConnection";
   private static final String NOTIFY_ON_DISCONNECTION_KEY =
       "notifyOnDisconnection";
@@ -74,16 +80,32 @@ public class TiBluetoothCentralManagerProxy
   }
 
   @Kroll.method
-  public void startScan() {
-    startScanWithServices(null);
+  public void startScan(String[] services, String[] addresses) {
+      startScanWithFilters(services, addresses);
   }
 
   @Kroll.method
-  public void startScanWithServices(String[] services) {
-    ScanSettings settings =
-        new ScanSettings.Builder().setScanMode(scanMode).build();
+  public boolean retrieveConnectedPeripherals(String[] services, String[] addresses) {
+    BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
+    List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+    for(BluetoothDevice device : devices) {
+      for(String s: addresses){
+        if(s.equals(device.getAddress())) {
+                TiBluetoothPeripheralProxy bluetoothPeripheral = new TiBluetoothPeripheralProxy(device);
+            fireCentralManagerEvent(DID_CONNECT_PERIPHERAL, bluetoothPeripheral);
+            return true;
+        }
+      }
+    }  
+    return false;  
+  }
 
-    List<ScanFilter> filters = buildScanFilters(services);
+  @Kroll.method
+  public void startScanWithFilters(String[] services, String[] addresses) {
+    ScanSettings settings =
+        new ScanSettings.Builder().setScanMode(scanMode).setReportDelay(500).build();
+
+    List<ScanFilter> filters = buildScanFilters(services, addresses);
     bluetoothAdapter.getBluetoothLeScanner().startScan(filters, settings,
                                                        scanCallback);
     isScanning = true;
@@ -125,6 +147,12 @@ public class TiBluetoothCentralManagerProxy
     fireCentralManagerEvent(DID_FAIL_TO_CONNECT_PERIPHERAL, peripheral);
   }
 
+  @Override
+  public void
+  onPeripheralConnectionStateError133(TiBluetoothPeripheralProxy peripheral) {
+    fireCentralManagerEvent(DID_FAIL_TO_CONNECT_PERIPHERAL_133, peripheral);
+  }
+
   @Kroll.method
   public void
   cancelPeripheralConnection(TiBluetoothPeripheralProxy peripheral) {
@@ -156,7 +184,7 @@ public class TiBluetoothCentralManagerProxy
     return bluetoothState;
   }
 
-  private List<ScanFilter> buildScanFilters(String[] serviceUuids) {
+  private List<ScanFilter> buildScanFilters(String[] serviceUuids, String[] deviceAddresses) {
     List<ScanFilter> filterList = new ArrayList<>();
 
     if (serviceUuids != null && serviceUuids.length > 0) {
@@ -164,6 +192,16 @@ public class TiBluetoothCentralManagerProxy
         ScanFilter filter =
             new ScanFilter.Builder()
                 .setServiceUuid(ParcelUuid.fromString(serviceUuids[i]))
+                .build();
+        filterList.add(filter);
+      }
+    }
+
+    if (deviceAddresses != null && deviceAddresses.length > 0) {
+      for (int i = 0; i < deviceAddresses.length; i++) {
+        ScanFilter filter =
+            new ScanFilter.Builder()
+                .setDeviceAddress(deviceAddresses[i])
                 .build();
         filterList.add(filter);
       }

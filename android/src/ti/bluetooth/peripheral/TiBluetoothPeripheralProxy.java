@@ -12,6 +12,7 @@ import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.titanium.TiBlob;
+import org.appcelerator.kroll.common.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,8 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
       public void onConnectionStateChange(BluetoothGatt gatt, int status,
                                           int newState) {
         super.onConnectionStateChange(gatt, status, newState);
+Log.i("[INFO] TiBluetoothModule", "onConnectionStateChange: status=>"+status+" newState=>"+newState);
+Log.i("[INFO] TiBluetoothModule", "onConnectionStateChange reference: status BluetoothGatt.GATT_SUCCESS=>"+BluetoothGatt.GATT_SUCCESS+" newstatus BluetoothProfile.STATE_CONNECTED=>"+BluetoothProfile.STATE_CONNECTED+" BluetoothProfile.STATE_DISCONNECTED=>"+BluetoothProfile.STATE_DISCONNECTED);
 
         if (status == BluetoothGatt.GATT_SUCCESS) {
           if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -66,10 +69,17 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
                       TiBluetoothPeripheralProxy.this);
             }
           }
+        } else if (status == 133 && newState == BluetoothProfile.STATE_DISCONNECTED) {
+          Log.i("[INFO] TiBluetoothModule", "error 133 - you should retry connection");
+          onPeripheralConnectionStateChangedListener
+                .onPeripheralConnectionStateError133(
+                    TiBluetoothPeripheralProxy.this);
+
         } else {
           onPeripheralConnectionStateChangedListener
               .onPeripheralConnectionStateError(
                   TiBluetoothPeripheralProxy.this);
+        
         }
       }
 
@@ -109,8 +119,20 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
   }
 
   public void disconnectPeripheral() {
-    bluetoothGatt.disconnect();
-    bluetoothGatt.close();
+    try {
+      if (bluetoothGatt != null){
+        bluetoothGatt.disconnect();
+      }
+    } catch( Exception e) {
+      Log.e("TiBluetoothPeripheralProxy disconnect", e.getMessage());
+    }
+    try {
+      if (bluetoothGatt != null){
+        bluetoothGatt.close();
+      }
+    } catch( Exception e) {
+      Log.e("TiBluetoothPeripheralProxy close", e.getMessage());
+    }      
   }
 
   private List<TiBluetoothServiceProxy>
@@ -177,20 +199,41 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
   @Kroll.method
   public void setNotifyValueForCharacteristic(
       boolean enabled, TiBluetoothCharacteristicProxy characteristic) {
+
+    Log.i("[INFO] TiBluetoothModule", "setNotifyValueForCharacteristic enabled: " + enabled);
     bluetoothGatt.setCharacteristicNotification(
         characteristic.getCharacteristic(), enabled);
   }
 
   @Kroll.method
   public void writeValueForCharacteristicWithType(
-      TiBlob value,
+      String value,
       TiBluetoothCharacteristicProxy tiBluetoothCharacteristicProxy,
       int writeType) {
     BluetoothGattCharacteristic characteristic =
         tiBluetoothCharacteristicProxy.getCharacteristic();
 
     characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-    characteristic.setValue(value.getBytes());
+    Log.i("[INFO] TiBluetoothModule", "value: " + value);
+    byte[] newData = hexToByteData(value);
+    Boolean result = characteristic.setValue(newData);
+    Log.i("[INFO] TiBluetoothModule", "could write locally: " +result);
     bluetoothGatt.writeCharacteristic(characteristic);
+  }
+
+  public byte[] hexToByteData(String hex)
+  {
+      byte[] convertedByteArray = new byte[hex.length()/2];
+      int count  = 0;
+
+      for( int i = 0; i < hex.length() -1; i += 2 )
+      {
+          String output;
+          output = hex.substring(i, (i + 2));
+          int decimal = Integer.parseInt(output, 16);
+          convertedByteArray[count] =  (byte)(decimal & 0xFF);
+          count ++;
+      }
+      return convertedByteArray;
   }
 }

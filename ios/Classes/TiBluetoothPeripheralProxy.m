@@ -135,13 +135,36 @@
   id characteristic = [args objectAtIndex:1];
   id type = [args objectAtIndex:2];
 
-  ENSURE_TYPE(value, TiBlob);
+  //ENSURE_TYPE(value, TiBlob);
   ENSURE_TYPE(characteristic, TiBluetoothCharacteristicProxy);
   ENSURE_TYPE(type, NSNumber);
 
-  [_peripheral writeValue:[(TiBlob *)value data]
+  //[_peripheral writeValue:[(TiBlob *)value data]
+    NSData *dataValue = [self dataFromHexString:value];
+
+    [_peripheral writeValue:dataValue
         forCharacteristic:[(TiBluetoothCharacteristicProxy *)characteristic characteristic]
                      type:[TiUtils intValue:type]];
+}
+
+-(NSData *)dataFromHexString:(NSString *)string
+{
+    string = [string lowercaseString];
+    NSMutableData *data= [NSMutableData new];
+    unsigned char whole_byte;
+    char byte_chars[3] = {'\0','\0','\0'};
+    int i = 0;
+    int length = string.length;
+    while (i < length-1) {
+        char c = [string characterAtIndex:i++];
+        if (c < '0' || (c > '9' && c < 'a') || c > 'f')
+            continue;
+        byte_chars[0] = c;
+        byte_chars[1] = [string characterAtIndex:i++];
+        whole_byte = strtol(byte_chars, NULL, 16);
+        [data appendBytes:&whole_byte length:1];
+    }
+    return data;
 }
 
 - (NSNumber *)canSendWriteWithoutResponse
@@ -149,10 +172,16 @@
   return NUMBOOL([_peripheral canSendWriteWithoutResponse]);
 }
 
-- (void)openL2CAPChannel:(id)args
+//- (void)openL2CAPChannel:(id)args
+- (void)openL2CAPChannel:(id)psm
 {
-  ENSURE_SINGLE_ARG(args, NSDictionary);
-  [_peripheral openL2CAPChannel:0];
+  //ENSURE_SINGLE_ARG(args, NSDictionary);
+  //[_peripheral openL2CAPChannel:0];
+    ENSURE_SINGLE_ARG(psm, NSNumber);
+
+    NSLog(@"[INFO] openL2CAPChannel %d", [TiUtils intValue:psm]);
+    [_peripheral openL2CAPChannel:[TiUtils intValue:psm]];
+
 }
 
 - (void)setNotifyValueForCharacteristic:(id)args
