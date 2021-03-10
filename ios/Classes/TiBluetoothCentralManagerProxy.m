@@ -181,7 +181,7 @@
     [self fireEvent:@"didDiscoverPeripheral"
          withObject:@{
            @"peripheral" : [self peripheralProxyFromPeripheral:peripheral],
-           @"advertisementData" : [self dictionaryFromAdvertisementData:advertisementData],
+           //@"advertisementData" : [self dictionaryFromAdvertisementData:advertisementData],
            @"rssi" : RSSI
          }];
   }

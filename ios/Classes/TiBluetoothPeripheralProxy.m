@@ -15,6 +15,7 @@
 #import "TiUtils.h"
 #import "TiBlob.h"
 #import "TiBluetoothL2CAPChannelProxy.h"
+#import <CommonCrypto/CommonCryptor.h>
 
 @implementation TiBluetoothPeripheralProxy
 
@@ -127,24 +128,64 @@
   return NUMUINTEGER([_peripheral maximumWriteValueLengthForType:[TiUtils intValue:value]]);
 }
 
+- (NSData *)aesCBCEncrypt:(NSData *)data
+                         key:(NSData *)key
+                       error:(NSError **)error
+{    
+    CCCryptorStatus ccStatus   = kCCSuccess;
+    int             ivLength   = kCCBlockSizeAES128;
+    size_t          cryptBytes = 0;
+    NSMutableData  *dataOut    = [NSMutableData dataWithLength:ivLength + data.length + kCCBlockSizeAES128];
+
+    SecRandomCopyBytes(kSecRandomDefault, ivLength, dataOut.mutableBytes);
+
+    ccStatus = CCCrypt(kCCEncrypt,
+                       kCCAlgorithmAES,
+                       kCCOptionPKCS7Padding,
+                       key.bytes, key.length,
+                       dataOut.bytes,
+                       data.bytes, data.length,
+                       dataOut.mutableBytes + ivLength, dataOut.length,
+                       &cryptBytes);
+
+    if (ccStatus == kCCSuccess) {
+        dataOut.length = cryptBytes + ivLength;
+    }
+    else {
+        if (error) {
+            *error = [NSError errorWithDomain:@"kEncryptionError" code:ccStatus userInfo:nil];
+        }
+        dataOut = nil;
+    }
+
+    return dataOut;
+}
+
 - (void)writeValueForCharacteristicWithType:(id)args
 {
-  ENSURE_ARG_COUNT(args, 3);
-
   id value = [args objectAtIndex:0];
   id characteristic = [args objectAtIndex:1];
   id type = [args objectAtIndex:2];
+  id _key = [args objectAtIndex:3];
 
   //ENSURE_TYPE(value, TiBlob);
   ENSURE_TYPE(characteristic, TiBluetoothCharacteristicProxy);
   ENSURE_TYPE(type, NSNumber);
 
-  //[_peripheral writeValue:[(TiBlob *)value data]
-    NSData *dataValue = [self dataFromHexString:value];
+  NSData *key = [self dataFromHexString:_key];
+  NSData *dataValue = [self dataFromHexString:value];
 
-    [_peripheral writeValue:dataValue
-        forCharacteristic:[(TiBluetoothCharacteristicProxy *)characteristic characteristic]
-                     type:[TiUtils intValue:type]];
+  NSLog(@"[INFO] key: %@", key);
+
+  if (key.length > 0) {
+      dataValue = [self aesCBCEncrypt:dataValue key:key error:nil];
+  }
+
+  NSLog(@"[INFO] Hex To NSData: %@", dataValue);
+  [_peripheral  writeValue:dataValue
+                forCharacteristic:[(TiBluetoothCharacteristicProxy *)characteristic characteristic]
+                type:[TiUtils intValue:type]];
+
 }
 
 -(NSData *)dataFromHexString:(NSString *)string
