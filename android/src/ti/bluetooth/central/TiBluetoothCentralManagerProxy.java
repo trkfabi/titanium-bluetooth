@@ -1,25 +1,22 @@
 package ti.bluetooth.central;
-
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.os.ParcelUuid;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import ti.bluetooth.TiBluetoothModule;
 import ti.bluetooth.broadcastReceiver.TiBluetoohBroadcastReceiver;
 import ti.bluetooth.listener.OnBluetoothStateChangedListener;
@@ -38,8 +35,6 @@ public class TiBluetoothCentralManagerProxy
       "didDisconnectPeripheral";
   private static final String DID_FAIL_TO_CONNECT_PERIPHERAL =
       "didFailToConnectPeripheral";
-  private static final String DID_FAIL_TO_CONNECT_PERIPHERAL_133 =
-      "didFailToConnectPeripheral133";      
   private static final String NOTIFY_ON_CONNECTION_KEY = "notifyOnConnection";
   private static final String NOTIFY_ON_DISCONNECTION_KEY =
       "notifyOnDisconnection";
@@ -80,24 +75,24 @@ public class TiBluetoothCentralManagerProxy
   }
 
   @Kroll.method
+  // public void startScan() {
+  //   startScanWithServices(null);
+  // }
   public void startScan(String[] services, String[] addresses) {
       startScanWithFilters(services, addresses);
   }
 
+
   @Kroll.method
-  public boolean retrieveConnectedPeripherals(String[] services, String[] addresses) {
-    BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
-    List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
-    for(BluetoothDevice device : devices) {
-      for(String s: addresses){
-        if(s.equals(device.getAddress())) {
-                TiBluetoothPeripheralProxy bluetoothPeripheral = new TiBluetoothPeripheralProxy(device);
-            fireCentralManagerEvent(DID_CONNECT_PERIPHERAL, bluetoothPeripheral);
-            return true;
-        }
-      }
-    }  
-    return false;  
+  public void startScanWithServices(String[] services) {
+    ScanSettings settings =
+        new ScanSettings.Builder().setScanMode(scanMode).build();
+
+    String[] addresses = {};    
+    List<ScanFilter> filters = buildScanFilters(services, addresses);
+    bluetoothAdapter.getBluetoothLeScanner().startScan(filters, settings,
+                                                       scanCallback);
+    isScanning = true;
   }
 
   @Kroll.method
@@ -118,8 +113,9 @@ public class TiBluetoothCentralManagerProxy
   }
 
   @Kroll.method
-  public void connectPeripheral(TiBluetoothPeripheralProxy peripheral,
-                                @Kroll.argument(optional=true) KrollDict properties) {
+  public void
+  connectPeripheral(TiBluetoothPeripheralProxy peripheral,
+                    @Kroll.argument(optional = true) KrollDict properties) {
     boolean notifyOnConnection =
         properties.getBoolean(NOTIFY_ON_CONNECTION_KEY);
     boolean notifyOnDisconnection =
@@ -147,29 +143,21 @@ public class TiBluetoothCentralManagerProxy
     fireCentralManagerEvent(DID_FAIL_TO_CONNECT_PERIPHERAL, peripheral);
   }
 
-  @Override
-  public void
-  onPeripheralConnectionStateError133(TiBluetoothPeripheralProxy peripheral) {
-    fireCentralManagerEvent(DID_FAIL_TO_CONNECT_PERIPHERAL_133, peripheral);
-  }
-
   @Kroll.method
   public void
   cancelPeripheralConnection(TiBluetoothPeripheralProxy peripheral) {
     peripheral.disconnectPeripheral();
   }
 
-  @Kroll
-      .getProperty
-      @Kroll.method
-      public int getScanMode() {
+  @Kroll.getProperty
+  @Kroll.method
+  public int getScanMode() {
     return scanMode;
   }
 
-  @Kroll
-      .setProperty
-      @Kroll.method
-      public void setScanMode(int scanMode) {
+  @Kroll.setProperty
+  @Kroll.method
+  public void setScanMode(int scanMode) {
     if (scanMode == SCAN_MODE_BALANCED || scanMode == SCAN_MODE_LOW_LATENCY ||
         scanMode == SCAN_MODE_LOW_POWER ||
         scanMode == SCAN_MODE_OPPORTUNISTIC) {
@@ -177,13 +165,27 @@ public class TiBluetoothCentralManagerProxy
     }
   }
 
-  @Kroll
-      .getProperty
-      @Kroll.method
-      public int getState() {
+  @Kroll.getProperty
+  @Kroll.method
+  public int getState() {
     return bluetoothState;
   }
 
+  // private List<ScanFilter> buildScanFilters(String[] serviceUuids) {
+  //   List<ScanFilter> filterList = new ArrayList<>();
+
+  //   if (serviceUuids != null && serviceUuids.length > 0) {
+  //     for (int i = 0; i < serviceUuids.length; i++) {
+  //       ScanFilter filter =
+  //           new ScanFilter.Builder()
+  //               .setServiceUuid(ParcelUuid.fromString(serviceUuids[i]))
+  //               .build();
+  //       filterList.add(filter);
+  //     }
+  //   }
+
+  //   return filterList;
+  // }
   private List<ScanFilter> buildScanFilters(String[] serviceUuids, String[] deviceAddresses) {
     List<ScanFilter> filterList = new ArrayList<>();
 
@@ -208,7 +210,7 @@ public class TiBluetoothCentralManagerProxy
     }
 
     return filterList;
-  }
+  }  
 
   private final ScanCallback scanCallback = new ScanCallback() {
     @Override
@@ -235,7 +237,8 @@ public class TiBluetoothCentralManagerProxy
 
   private void processResult(ScanResult result) {
     TiBluetoothPeripheralProxy bluetoothPeripheral =
-        new TiBluetoothPeripheralProxy(result.getDevice());
+        new TiBluetoothPeripheralProxy(result.getDevice(),
+                                       result.getScanRecord());
     fireCentralManagerEvent(DID_DISCOVER_PERIPHERAL, bluetoothPeripheral);
   }
 
@@ -267,4 +270,5 @@ public class TiBluetoothCentralManagerProxy
 
     fireEvent(DID_UPDATE_STATE_EVENT, kd);
   }
+
 }

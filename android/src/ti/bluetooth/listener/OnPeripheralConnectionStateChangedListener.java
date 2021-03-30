@@ -8,5 +8,4 @@ public interface OnPeripheralConnectionStateChangedListener {
   void onPeripheralConnectionStateDisconnected(
       TiBluetoothPeripheralProxy peripheral);
   void onPeripheralConnectionStateError(TiBluetoothPeripheralProxy peripheral);
-  void onPeripheralConnectionStateError133(TiBluetoothPeripheralProxy peripheral);
 }
