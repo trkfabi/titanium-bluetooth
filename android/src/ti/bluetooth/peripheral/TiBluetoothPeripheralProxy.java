@@ -67,7 +67,9 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
         super.onConnectionStateChange(gatt, status, newState);
 
         if (status == BluetoothGatt.GATT_SUCCESS) {
+          Log.i("[INFO] TiBluetoothPeripheralProxy connectPeripheral()", "GATT_SUCCESS");
           if (newState == BluetoothProfile.STATE_CONNECTED) {
+            Log.i("[INFO] TiBluetoothPeripheralProxy connectPeripheral()", "CONNECTED");
             bluetoothGatt = gatt;
             if (notifyOnConnection) {
               onPeripheralConnectionStateChangedListener
@@ -75,6 +77,7 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
                       TiBluetoothPeripheralProxy.this);
             }
           } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+            Log.i("[INFO] TiBluetoothPeripheralProxy connectPeripheral()", "DISCONNECTED");
             if (notifyOnDisconnection) {
               onPeripheralConnectionStateChangedListener
                   .onPeripheralConnectionStateDisconnected(
@@ -82,6 +85,7 @@ public class TiBluetoothPeripheralProxy extends KrollProxy {
             }
           }
         } else {
+          Log.i("[INFO] TiBluetoothPeripheralProxy connectPeripheral()", "GATT_ERROR");
           onPeripheralConnectionStateChangedListener
               .onPeripheralConnectionStateError(
                   TiBluetoothPeripheralProxy.this);

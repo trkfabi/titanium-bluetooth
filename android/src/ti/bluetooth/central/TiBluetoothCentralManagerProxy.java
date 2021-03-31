@@ -22,6 +22,7 @@ import ti.bluetooth.broadcastReceiver.TiBluetoohBroadcastReceiver;
 import ti.bluetooth.listener.OnBluetoothStateChangedListener;
 import ti.bluetooth.listener.OnPeripheralConnectionStateChangedListener;
 import ti.bluetooth.peripheral.TiBluetoothPeripheralProxy;
+import org.appcelerator.titanium.TiApplication;
 
 @Kroll.proxy(parentModule = TiBluetoothModule.class)
 public class TiBluetoothCentralManagerProxy
@@ -55,18 +56,31 @@ public class TiBluetoothCentralManagerProxy
 
   private boolean isScanning;
 
+  private ArrayList<TiBluetoothPeripheralProxy> connectedDevices;
+
   public TiBluetoothCentralManagerProxy(Context context,
                                         BluetoothAdapter bluetoothAdapter) {
     this.context = context;
     this.bluetoothAdapter = bluetoothAdapter;
     this.bluetoothState = bluetoothAdapter.getState();
     this.scanMode = ScanSettings.SCAN_MODE_BALANCED;
+    this.connectedDevices = new ArrayList<TiBluetoothPeripheralProxy>();
 
     IntentFilter intentFilter = new IntentFilter();
     intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
 
     context.registerReceiver(new TiBluetoohBroadcastReceiver(this),
                              intentFilter);
+  }
+
+  public void removeDevice(TiBluetoothPeripheralProxy mDevice) {
+      try {
+          if (this.connectedDevices != null && this.connectedDevices.size() > 0) {
+              this.connectedDevices.remove(mDevice);
+          }
+      } catch (Exception e) {
+          e.printStackTrace();
+      }
   }
 
   @Kroll.method
@@ -128,12 +142,18 @@ public class TiBluetoothCentralManagerProxy
   @Override
   public void
   onPeripheralConnectionStateConnected(TiBluetoothPeripheralProxy peripheral) {
+    if (!this.connectedDevices.contains(peripheral)) {
+      this.connectedDevices.add(peripheral);
+    }
     fireCentralManagerEvent(DID_CONNECT_PERIPHERAL, peripheral);
   }
 
   @Override
   public void onPeripheralConnectionStateDisconnected(
       TiBluetoothPeripheralProxy peripheral) {
+
+    removeDevice(peripheral);
+
     fireCentralManagerEvent(DID_DISCONNECT_PERIPHERAL, peripheral);
   }
 
@@ -210,7 +230,28 @@ public class TiBluetoothCentralManagerProxy
     }
 
     return filterList;
-  }  
+  } 
+
+  @Kroll.method
+  public TiBluetoothPeripheralProxy retrieveConnectedPeripherals(String[] services, String[] addresses) {
+    BluetoothManager bluetoothManager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
+    List<BluetoothDevice> devices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+    for(BluetoothDevice device : devices) {
+      Log.w("[WARN] retrieveConnectedPeripherals", device.getAddress() + " - " + device.getName());
+      for(String s: addresses){
+        if(s.equals(device.getAddress())) {
+          for (TiBluetoothPeripheralProxy dev: this.connectedDevices) {
+            Log.w("[WARN] retrieveConnectedPeripherals", "this.connectedDevice: " + dev.getAddress());
+            if (dev.getAddress().equals(device.getAddress())) {
+              return dev;
+            }
+          }
+        }
+      }
+    }  
+    return null;  
+  }
+
 
   private final ScanCallback scanCallback = new ScanCallback() {
     @Override
@@ -239,6 +280,7 @@ public class TiBluetoothCentralManagerProxy
     TiBluetoothPeripheralProxy bluetoothPeripheral =
         new TiBluetoothPeripheralProxy(result.getDevice(),
                                        result.getScanRecord());
+
     fireCentralManagerEvent(DID_DISCOVER_PERIPHERAL, bluetoothPeripheral);
   }
 
